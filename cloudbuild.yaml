@@ -1,6 +1,6 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA', '.']
+  args: ['build', '--no-cache', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA', '.']
 - name: 'gcr.io/cloud-builders/docker'
   args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA']
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
