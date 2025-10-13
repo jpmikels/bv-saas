@@ -1,10 +1,36 @@
-# Business Valuation SaaS — Starter Repo
+# Valuation Tool Ryan
 
-This is a minimal scaffold to deploy a FastAPI + Next.js app to **GCP Cloud Run** with **Terraform** and **Cloud Build**.
-It includes:
-- API (FastAPI) with `/healthz` and a basic uploads flow
-- Web (Next.js) upload page
-- Terraform (dev env) to enable core services/buckets/SQL (simplified)
-- Cloud Build configs to build/deploy API and workers (template)
+A lightweight web application that processes PDF, Excel, and CSV files containing financial data and provides a data preview for business valuation use cases.
 
-> Replace placeholder values and expand modules as needed. See your canvas "Kickstart Pack" for the full, production-ready version.
+### Features
+- Upload and extract tabular data from PDFs using **pdfplumber**.
+- Parse `.xlsx` and `.csv` financial statements.
+- Simple Flask interface with a single-page upload form.
+- Cloud-ready: deploy easily to **Google Cloud Run** or **Docker**.
+
+### Folder Structure
+```
+valuation-tool-ryan/
+├── app.py
+├── templates/
+│   └── index.html
+├── requirements.txt
+├── Dockerfile
+├── README.md
+└── uploads/
+```
+
+### Run Locally
+```bash
+pip install -r requirements.txt
+python app.py
+```
+
+### Deploy to Cloud Run
+```bash
+gcloud builds submit --tag gcr.io/PROJECT_ID/valuation-app
+gcloud run deploy valuation-app \
+  --image gcr.io/PROJECT_ID/valuation-app \
+  --allow-unauthenticated \
+  --port 8080
+```
