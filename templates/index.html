@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+  <title>Business Valuation Tool</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 40px; }
+    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    h1 { color: #333; text-align: center; }
+    input[type=file] { display: block; margin: 20px auto; }
+    button { display: block; margin: 20px auto; padding: 10px 20px; background: #007bff; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
+    pre { background: #eee; padding: 10px; border-radius: 5px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div class='container'>
+    <h1>Valuation Data Uploader</h1>
+    <form id='uploadForm'>
+      <input type='file' id='fileInput' name='file' accept='.pdf,.xlsx,.csv' required>
+      <button type='submit'>Upload</button>
+    </form>
+    <pre id='output'></pre>
+  </div>
+
+  <script>
+    const form = document.getElementById('uploadForm');
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('fileInput');
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      const res = await fetch('/upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      document.getElementById('output').textContent = JSON.stringify(data, null, 2);
+    });
+  </script>
+</body>
+</html>
