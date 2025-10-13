@@ -3,7 +3,7 @@
 A lightweight web application that processes PDF, Excel, and CSV files containing financial data and provides a data preview for business valuation use cases.
 
 ### Features
-- Upload and extract tabular data from PDFs using **pdfplumber**.
+- Upload and extract tabular data from PDFs using **odfplumber**.
 - Parse `.xlsx` and `.csv` financial statements.
 - Simple Flask interface with a single-page upload form.
 - Cloud-ready: deploy easily to **Google Cloud Run** or **Docker**.
