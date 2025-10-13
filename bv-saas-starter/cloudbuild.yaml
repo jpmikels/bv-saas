@@ -1,29 +1,20 @@
-# cloudbuild.yaml
-
 steps:
-  # 1. Build the container image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA', '.']
-
-  # 2. Push the container image to Artifact Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA']
-
-  # 3. Deploy the new image to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'my-app-service' # This is the name of your Cloud Run service
-      - '--image'
-      - 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA'
-      - '--region'
-      - 'us-central1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-
-# Store the built image in Artifact Registry
-images:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA', '.']
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA']
+- name: 'ggcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+  - 'run'
+  - 'deploy'
+  - 'my-app-service'
+  - '--image'
   - 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA'
+  - '--region'
+  - 'us-central1'
+  - '--platform'
+  - 'managed'
+  - '--allow-unauthenticated'
+images:
+- 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA'
