@@ -1,17 +1,21 @@
-# Use the official Python 3.10 as the base
-FROM python:3.10-slim
+FROM python:3.11-slim
 
-# Set the main folder for the app inside the box
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PORT=8080
 WORKDIR /app
 
-# First, copy the shopping list into the box
-COPY requirements.txt .
+# OS libs needed by numpy/pandas on slim
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgfortran5 ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
-# Now, read the shopping list and install all the tools
+# install deps first for better layer cache
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Finally, copy the rest of your app's code into the box
+# copy app
 COPY . .
 
-# Tell the box what command to run when it starts
-CMD ["python", "app.py"]
+# production server; binds to $PORT
+CMD ["sh","-c","gunicorn -b :${PORT:-8080} app:app"]
