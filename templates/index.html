@@ -23,18 +23,31 @@
     <pre id='output'></pre>
   </div>
 
-  <script>
-    const form = document.getElementById('uploadForm');
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fileInput = document.getElementById('fileInput');
-      const formData = new FormData();
-      formData.append('file', fileInput.files[0]);
+ <script>
+  const form = document.getElementById('uploadForm');
+  const output = document.getElementById('output');
 
+  function show(msg) {
+    output.textContent = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    output.textContent = 'Uploading...';
+    const fileInput = document.getElementById('fileInput');
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+
+    try {
       const res = await fetch('/upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      document.getElementById('output').textContent = JSON.stringify(data, null, 2);
-    });
-  </script>
-</body>
-</html>
+      // If server returned non-JSON (e.g., stack trace), read as text first.
+      const text = await res.text();
+      if (!res.ok) throw new Error(text || `HTTP ${res.status}`);
+      let data;
+      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+      show(data);
+    } catch (err) {
+      show(`Upload failed: ${err.message}`);
+    }
+  });
+</script>
