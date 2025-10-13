@@ -10,6 +10,11 @@ COPY requirements.txt .
 # Now, read the shopping list and install all the tools
 RUN pip install --no-cache-dir -r requirements.txt
 
+# --- ADD THIS DEBUG STEP ---
+# This will print a list of all installed packages to the build log.
+RUN pip freeze
+# --- END DEBUG STEP ---
+
 # Finally, copy the rest of your app's code into the box
 COPY . .
 
