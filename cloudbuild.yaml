@@ -1,15 +1,14 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  # Run this step inside the bv-saas-starter directory
-  dir: 'bv-saas-starter'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA', '.']
+  args: 
+  - 'build'
+  - '-t'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA'
+  - '--file=bv-saas-starter/Dockerfile' # Explicitly point to the Dockerfile
+  - 'bv-saas-starter' # Use the subdirectory as the build context
 - name: 'gcr.io/cloud-builders/docker'
-  # Run this step inside the bv-saas-starter directory
-  dir: 'bv-saas-starter'
   args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA']
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-  # Run this step inside the bv-saas-starter directory
-  dir: 'bv-saas-starter'
   entrypoint: gcloud
   args:
   - 'run'
