@@ -1,0 +1,50 @@
+# cloudbuild.yaml
+# Builds -> Pushes -> Deploys to Cloud Run
+
+substitutions:
+  _SERVICE_NAME: "valuation-app"
+  _REGION: "us-central1"
+  _REPO: "app"
+  _IMAGE: "valuation-app"
+
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    id: "Build image"
+    env: ["DOCKER_BUILDKIT=1"]
+    args:
+      [
+        "build",
+        "-t",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}",
+        "."
+      ]
+
+  - name: "gcr.io/cloud-builders/docker"
+    id: "Push image"
+    args:
+      [
+        "push",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}"
+      ]
+
+  - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
+    id: "Deploy to Cloud Run"
+    entrypoint: gcloud
+    args:
+      [
+        "run",
+        "deploy",
+        "${_SERVICE_NAME}",
+        "--image",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}",
+        "--region",
+        "${_REGION}",
+        "--platform",
+        "managed",
+        "--allow-unauthenticated",
+        "--port",
+        "8080"
+      ]
+
+images:
+  - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}"
