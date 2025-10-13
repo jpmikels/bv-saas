@@ -1,4 +1,10 @@
 steps:
+# ---- This new step lists all files for debugging ----
+- name: 'gcr.io/cloud-builders/gcloud'
+  entrypoint: 'bash'
+  args: ['-c', 'ls -la']
+
+# ---- Original build steps ----
 - name: 'gcr.io/cloud-builders/docker'
   args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA', '.']
 - name: 'gcr.io/cloud-builders/docker'
