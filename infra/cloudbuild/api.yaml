@@ -1,0 +1,25 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ["build","-t","${_REGION}-docker.pkg.dev/$PROJECT_ID/containers/api:${SHORT_SHA}","apps/api"]
+  - name: gcr.io/cloud-builders/docker
+    args: ["push","${_REGION}-docker.pkg.dev/$PROJECT_ID/containers/api:${SHORT_SHA}"]
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - api
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/containers/api:${SHORT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --allow-unauthenticated
+      - --min-instances=0
+      - --max-instances=50
+      - --cpu=1
+      - --memory=1Gi
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/containers/api:${SHORT_SHA}
+substitutions:
+  _REGION: us-central1
+options:
+  logging: CLOUD_LOGGING_ONLY
