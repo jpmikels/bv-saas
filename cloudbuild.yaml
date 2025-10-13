@@ -18,4 +18,5 @@ steps:
   - '--allow-unauthenticated'
 images:
 - 'us-central1-docker.pkg.dev/$PROJECT_ID/my-app-repo/my-app:$SHORT_SHA'
-
+options:
+  logging: CLOUD_LOGGING_ONLY
