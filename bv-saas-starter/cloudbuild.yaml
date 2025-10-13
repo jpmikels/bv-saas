@@ -1,18 +1,5 @@
 # cloudbuild.yaml
-# Build -> Push (Artifact Registry) -> Deploy (Cloud Run)
-# Place this file at the ROOT of your repository.
-#
-# One-time setup:
-#   gcloud services enable cloudbuild.googleapis.com run.googleapis.com artifactregistry.googleapis.com
-#   gcloud artifacts repositories create app --repository-format=docker --location=us-central1
-#   PROJECT_ID=$(gcloud config get-value project)
-#   PROJECT_NUMBER=$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')
-#   gcloud projects add-iam-policy-binding "$PROJECT_ID" #     --member="serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" #     --role="roles/run.admin"
-#   gcloud projects add-iam-policy-binding "$PROJECT_ID" #     --member="serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" #     --role="roles/iam.serviceAccountUser"
-#   gcloud projects add-iam-policy-binding "$PROJECT_ID" #     --member="serviceAccount:${PROJECT_NUMBER}@cloudbuild.gserviceaccount.com" #     --role="roles/artifactregistry.writer"
-#
-# Trigger example:
-#   gcloud beta builds triggers create github #     --name="deploy-on-main" #     --repo-owner="jpmikels" --repo-name="bv-saas" #     --branch-pattern="^main$" #     --build-config="cloudbuild.yaml" #     --substitutions=_SERVICE_NAME=valuation-app,_REGION=us-central1,_REPO=app,_IMAGE=valuation-app
+# Builds -> Pushes -> Deploys to Cloud Run
 
 substitutions:
   _SERVICE_NAME: "valuation-app"
@@ -24,21 +11,40 @@ steps:
   - name: "gcr.io/cloud-builders/docker"
     id: "Build image"
     env: ["DOCKER_BUILDKIT=1"]
-    args: ["build","-t","${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}","."]
+    args:
+      [
+        "build",
+        "-t",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}",
+        "."
+      ]
 
   - name: "gcr.io/cloud-builders/docker"
     id: "Push image"
-    args: ["push","${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}"]
+    args:
+      [
+        "push",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}"
+      ]
 
   - name: "gcr.io/google.com/cloudsdktool/cloud-sdk"
     id: "Deploy to Cloud Run"
     entrypoint: gcloud
-    args: ["run","deploy","${_SERVICE_NAME}",
-           "--image","${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}",
-           "--region","${_REGION}",
-           "--platform","managed",
-           "--allow-unauthenticated",
-           "--port","8080"]
+    args:
+      [
+        "run",
+        "deploy",
+        "${_SERVICE_NAME}",
+        "--image",
+        "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}",
+        "--region",
+        "${_REGION}",
+        "--platform",
+        "managed",
+        "--allow-unauthenticated",
+        "--port",
+        "8080"
+      ]
 
 images:
   - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:${SHORT_SHA}"
