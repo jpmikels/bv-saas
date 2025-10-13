@@ -1,21 +1,28 @@
-FROM python:3.11-slim
+# -----------------------------
+# Dockerfile for Valuation App
+# -----------------------------
 
+# Use a full Python image so pandas/numpy don’t crash
+FROM python:3.11
+
+# Prevent .pyc files and enable unbuffered output
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+
+# Cloud Run automatically sets PORT — default to 8080 for local use
 ENV PORT=8080
+
+# Set working directory
 WORKDIR /app
 
-# OS libs needed by numpy/pandas on slim
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libgfortran5 ca-certificates \
- && rm -rf /var/lib/apt/lists/*
-
-# install deps first for better layer cache
+# Copy dependency list
 COPY requirements.txt .
+
+# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# copy app
+# Copy the rest of the app
 COPY . .
 
-# production server; binds to $PORT
-CMD ["sh","-c","gunicorn -b :${PORT:-8080} app:app"]
+# Use Gunicorn in production and restrict to 1 worker to save memory
+CMD ["sh","-c","gunicorn --workers=1 -b :${PORT:-8080} app:app"]
