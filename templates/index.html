@@ -16,38 +16,48 @@
 <body>
   <div class='container'>
     <h1>Valuation Data Uploader</h1>
-    <form id='uploadForm'>
-      <input type='file' id='fileInput' name='file' accept='.pdf,.xlsx,.csv' required>
-      <button type='submit'>Upload</button>
-    </form>
-    <pre id='output'></pre>
-  </div>
+    <form id="uploadForm">
+  <input type="file" id="fileInput" name="files" accept=".pdf,.xlsx,.csv" multiple required>
+  <button type="submit">Upload & Consolidate</button>
+</form>
+<pre id="output"></pre>
 
- <script>
+<script>
   const form = document.getElementById('uploadForm');
   const output = document.getElementById('output');
 
-  function show(msg) {
-    output.textContent = typeof msg === 'string' ? msg : JSON.stringify(msg, null, 2);
-  }
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    output.textContent = 'Uploading...';
-    const fileInput = document.getElementById('fileInput');
-    const formData = new FormData();
-    formData.append('file', fileInput.files[0]);
+    output.textContent = 'Uploading & processing...';
+
+    const files = document.getElementById('fileInput').files;
+    if (!files.length) { output.textContent = 'Pick at least one file.'; return; }
+
+    const fd = new FormData();
+    for (const f of files) fd.append('files', f); // multiple files
 
     try {
-      const res = await fetch('/upload', { method: 'POST', body: formData });
-      // If server returned non-JSON (e.g., stack trace), read as text first.
-      const text = await res.text();
-      if (!res.ok) throw new Error(text || `HTTP ${res.status}`);
-      let data;
-      try { data = JSON.parse(text); } catch { data = { raw: text }; }
-      show(data);
+      const res = await fetch('/upload', { method: 'POST', body: fd });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(txt || `HTTP ${res.status}`);
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'valuation_consolidated.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      output.textContent = '✅ Consolidated Excel downloaded.';
     } catch (err) {
-      show(`Upload failed: ${err.message}`);
+      output.textContent = `Upload failed: ${err.message}`;
+    }
+  });
+</script>
+
     }
   });
 </script>
