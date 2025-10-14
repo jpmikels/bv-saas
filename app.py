@@ -5,6 +5,8 @@ import os
 
 app = Flask(__name__)
 
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32MB
+
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
