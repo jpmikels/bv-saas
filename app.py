@@ -3,6 +3,33 @@ import pandas as pd
 import pdfplumber
 import os
 
+MONTH_TOKENS = {"jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec","total"}
+
+def parse_excel_smart(path: str, sheet_name=0, preview_rows=5):
+    raw = pd.read_excel(path, sheet_name=sheet_name, header=None)
+
+    def looks_like_header(row: pd.Series) -> bool:
+        vals = [str(x).strip().lower() for x in row.dropna().tolist()]
+        return any(any(tok in v for tok in MONTH_TOKENS) for v in vals)
+
+    header_row_idx = None
+    for i in range(min(15, len(raw))):
+        if looks_like_header(raw.iloc[i]):
+            header_row_idx = i
+            break
+
+    if header_row_idx is None:
+        header_row_idx = raw.iloc[:15].notna().sum(axis=1).idxmax()
+
+    df = pd.read_excel(path, sheet_name=sheet_name, header=None, skiprows=header_row_idx)
+    df.columns = df.iloc[0].astype(str).str.strip()
+    df = df.iloc[1:]
+    df = df.dropna(axis=1, how="all").dropna(axis=0, how="all")
+    df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
+    first_col = df.columns[0]
+    df[first_col] = df[first_col].ffill()
+    return df.reset_index(drop=True).to_dict(orient="records")[:preview_rows]
+
 app = Flask(__name__)
 
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32MB
@@ -26,8 +53,8 @@ def upload_file():
 
     if file.filename.endswith('.pdf'):
         data = extract_pdf_data(filepath)
-    elif file.filename.endswith('.xlsx'):
-        data = pd.read_excel(filepath).to_dict(orient='records')
+   elif fname.endswith(('.xlsx', '.xls')):
+    data = parse_excel_smart(filepath, preview_rows=5)
     elif file.filename.endswith('.csv'):
         data = pd.read_csv(filepath).to_dict(orient='records')
     else:
