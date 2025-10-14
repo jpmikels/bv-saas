@@ -17,12 +17,14 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 MONTH_TOKENS = {"jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec","total"}
 
 def parse_excel_smart(path: str, sheet_name=0):
+    # Load without headers so we can detect them
     raw = pd.read_excel(path, sheet_name=sheet_name, header=None)
 
     def looks_like_header(row: pd.Series) -> bool:
         vals = [str(x).strip().lower() for x in row.dropna().tolist()]
         return any(any(tok in v for tok in MONTH_TOKENS) for v in vals)
 
+    # pick header row
     header_row_idx = None
     for i in range(min(15, len(raw))):
         if looks_like_header(raw.iloc[i]):
@@ -31,13 +33,40 @@ def parse_excel_smart(path: str, sheet_name=0):
     if header_row_idx is None:
         header_row_idx = raw.iloc[:15].notna().sum(axis=1).idxmax()
 
+    # Re-read with skiprows so the row after becomes header
     df = pd.read_excel(path, sheet_name=sheet_name, header=None, skiprows=header_row_idx)
-    df.columns = df.iloc[0].astype(str).str.strip()
-    df = df.iloc[1:]
-    df = df.dropna(axis=1, how="all").dropna(axis=0, how="all")
-    df = df.loc[:, ~df.columns.str.startswith("Unnamed")]
-    first_col = df.columns[0]
-    df[first_col] = df[first_col].ffill()
+    header = df.iloc[0].astype(str).str.strip().fillna("")
+    df = df.iloc[1:]  # drop header row from data
+
+    # Assign headers, drop empty/unnamed columns
+    cols = pd.Index(header)
+    keep = ~cols.str.match(r"^\s*$") & ~cols.str.startswith("Unnamed")
+    df = df.loc[:, keep]
+    cols = cols[keep]
+
+    # Make column names unique to avoid "Reindexing only valid..." errors
+    def make_unique(idx: pd.Index) -> pd.Index:
+        seen = {}
+        out = []
+        for c in idx:
+            c = str(c)
+            if c in seen:
+                seen[c] += 1
+                out.append(f"{c}_{seen[c]}")
+            else:
+                seen[c] = 0
+                out.append(c)
+        return pd.Index(out)
+
+    df.columns = make_unique(cols)
+
+    # Drop fully empty rows
+    df = df.dropna(axis=0, how="all")
+
+    # Forward-fill the first visible column using position (not label)
+    if df.shape[1] > 0:
+        df.iloc[:, 0] = df.iloc[:, 0].ffill()
+
     return df.reset_index(drop=True)
 
 # ---- PDF tables → DataFrame ----
