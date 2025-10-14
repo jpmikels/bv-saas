@@ -34,14 +34,16 @@
     if (!files.length) { output.textContent = 'Pick at least one file.'; return; }
 
     const fd = new FormData();
-    for (const f of files) fd.append('files', f); // multiple files
+    for (const f of files) fd.append('files', f);
 
     try {
       const res = await fetch('/upload', { method: 'POST', body: fd });
       if (!res.ok) {
-        const txt = await res.text();
-        throw new Error(txt || `HTTP ${res.status}`);
+        const text = await res.text();
+        throw new Error(text || `HTTP ${res.status}`);
       }
+
+      // Expecting a downloadable Excel file (blob)
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -51,13 +53,9 @@
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
-      output.textContent = '✅ Consolidated Excel downloaded.';
+      output.textContent = '✅ Consolidated Excel downloaded successfully.';
     } catch (err) {
-      output.textContent = `Upload failed: ${err.message}`;
-    }
-  });
-</script>
-
+      output.textContent = `❌ Upload failed: ${err.message}`;
     }
   });
 </script>
