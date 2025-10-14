@@ -1,61 +1,255 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang="en">
 <head>
-  <meta charset='UTF-8'>
-  <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-  <title>Business Valuation Tool</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Valuation Data Uploader</title>
+
+  <!-- Nice, readable font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
   <style>
-    body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 40px; }
-    .container { max-width: 600px; margin: auto; background: #fff; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-    h1 { color: #333; text-align: center; }
-    input[type=file] { display: block; margin: 20px auto; }
-    button { display: block; margin: 20px auto; padding: 10px 20px; background: #007bff; color: #fff; border: none; border-radius: 5px; cursor: pointer; }
-    pre { background: #eee; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    :root{
+      --bg: #0b1220;
+      --card: #0f172a;
+      --muted: #94a3b8;
+      --text: #e2e8f0;
+      --brand: #22c55e;      /* green */
+      --brand-2: #3b82f6;    /* blue */
+      --brand-3: #06b6d4;    /* teal accent */
+      --ring: rgba(59,130,246,.4);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      background:
+        radial-gradient(1200px 600px at 20% 0%, rgba(34,197,94,.15), transparent 60%),
+        radial-gradient(1000px 600px at 90% 10%, rgba(59,130,246,.12), transparent 70%),
+        linear-gradient(180deg, #0b1220 0%, #0b1220 100%);
+      color:var(--text);
+      font: 16px/1.5 Inter, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji","Segoe UI Emoji";
+      display:grid;
+      place-items:center;
+      padding:32px 16px;
+    }
+    .shell{width:100%;max-width:980px}
+    .header{
+      text-align:center;
+      margin-bottom:18px;
+    }
+    .title{
+      font-size: clamp(26px, 3.4vw, 42px);
+      line-height:1.1;
+      margin:0 0 8px;
+      letter-spacing:.2px;
+      font-weight:800;
+      background: linear-gradient(90deg, var(--brand-2), var(--brand-3), var(--brand));
+      -webkit-background-clip:text; background-clip:text; color:transparent;
+    }
+    .subtitle{
+      color:var(--muted);
+      font-size:14px;
+      margin:0 auto 8px;
+      max-width:720px;
+    }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+      border:1px solid rgba(148,163,184,.16);
+      box-shadow: 0 10px 30px rgba(2,6,23,.45);
+      border-radius:18px;
+      padding:22px;
+      backdrop-filter: blur(8px);
+    }
+    .grid{display:grid;grid-template-columns: 1.1fr .9fr;gap:18px}
+    @media (max-width:900px){ .grid{grid-template-columns:1fr} }
+
+    .drop{
+      border:2px dashed rgba(148,163,184,.28);
+      border-radius:14px;
+      padding:22px;
+      text-align:center;
+      transition:.2s;
+      background: rgba(15,23,42,.35);
+    }
+    .drop.drag{
+      border-color: var(--brand-2);
+      background: rgba(59,130,246,.08);
+      box-shadow: 0 0 0 6px var(--ring);
+    }
+    .drop .hint{color:var(--muted);font-size:14px;margin:6px 0 12px}
+    .drop input[type=file]{display:none}
+
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:8px; padding:12px 16px; width:100%;
+      border:none; border-radius:12px; cursor:pointer;
+      background: linear-gradient(90deg, var(--brand-2), var(--brand));
+      color:white; font-weight:700; letter-spacing:.2px;
+      box-shadow: 0 10px 24px rgba(16,185,129,.28), inset 0 -1px 0 rgba(255,255,255,.2);
+      transition: transform .06s ease, filter .2s ease;
+    }
+    .btn:active{ transform: translateY(1px) }
+    .btn.secondary{
+      background: transparent; border:1px solid rgba(148,163,184,.2); color:var(--text);
+    }
+
+    .badges{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+    .badge{
+      background: rgba(59,130,246,.15);
+      border:1px solid rgba(59,130,246,.3);
+      color:#cfe5ff;
+      padding:6px 10px; border-radius:999px;
+      font-size:12px;
+      max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    }
+
+    .panel{
+      border:1px solid rgba(148,163,184,.18);
+      border-radius:14px;
+      padding:16px;
+      min-height:110px;
+      background: rgba(2,6,23,.35);
+    }
+    .panel h4{margin:0 0 8px; font-size:14px; color:var(--muted); font-weight:700; letter-spacing:.3px}
+
+    .progress{height:8px; background:rgba(148,163,184,.16); border-radius:999px; overflow:hidden}
+    .bar{height:100%; width:0%; background:linear-gradient(90deg, var(--brand-2), var(--brand)); transition: width .3s ease}
+
+    .footer{margin-top:14px; text-align:center; color:var(--muted); font-size:12px}
+    code{background:rgba(148,163,184,.14); padding:2px 6px; border-radius:6px}
   </style>
 </head>
 <body>
-  <div class='container'>
-    <h1>Valuation Data Uploader</h1>
-    <form id="uploadForm">
-  <input type="file" id="fileInput" name="files" accept=".pdf,.xlsx,.csv" multiple required>
-  <button type="submit">Upload & Consolidate</button>
-</form>
-<pre id="output"></pre>
+  <main class="shell">
+    <div class="header">
+      <h1 class="title">Valuation Data Uploader</h1>
+      <p class="subtitle">Upload multiple PDFs/Excels/CSVs, and the app will merge them into a single Excel with tabs for <strong>P&amp;L</strong>, <strong>Balance Sheet</strong>, and <strong>Cash Flow</strong>.</p>
+    </div>
 
-<script>
-  const form = document.getElementById('uploadForm');
-  const output = document.getElementById('output');
+    <section class="card">
+      <div class="grid">
+        <!-- LEFT: Drag & Drop -->
+        <div>
+          <div id="drop" class="drop">
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style="opacity:.9">
+              <path d="M12 3v12m0-12L8 7m4-4 4 4" stroke="white" stroke-opacity=".85" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              <rect x="3" y="13" width="18" height="8" rx="4" stroke="white" stroke-opacity=".55" stroke-width="1.2"/>
+            </svg>
+            <p class="hint">Drag & drop files here, or</p>
+            <button class="btn secondary" id="pickBtn" type="button">Choose files</button>
+            <input id="fileInput" type="file" name="files" multiple accept=".pdf,.xlsx,.xls,.csv" />
+            <div class="badges" id="badges"></div>
+          </div>
 
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    output.textContent = 'Uploading & processing...';
+          <div style="margin-top:14px" class="progress" aria-hidden="true">
+            <div class="bar" id="bar"></div>
+          </div>
 
-    const files = document.getElementById('fileInput').files;
-    if (!files.length) { output.textContent = 'Pick at least one file.'; return; }
+          <div class="footer">Max request size ~ <code>32&nbsp;MB</code> (Cloud Run). Large files? We can switch to GCS uploads later.</div>
+        </div>
 
-    const fd = new FormData();
-    for (const f of files) fd.append('files', f);
+        <!-- RIGHT: Output / Messages -->
+        <div class="panel">
+          <h4>Status</h4>
+          <pre id="output" style="margin:0; white-space:pre-wrap;"></pre>
+        </div>
+      </div>
 
-    try {
-      const res = await fetch('/upload', { method: 'POST', body: fd });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `HTTP ${res.status}`);
+      <div style="margin-top:16px; display:grid; grid-template-columns: 1fr; gap:10px">
+        <button id="uploadBtn" class="btn">Upload &amp; Consolidate</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const drop = document.getElementById('drop');
+    const pickBtn = document.getElementById('pickBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const fileInput = document.getElementById('fileInput');
+    const badges = document.getElementById('badges');
+    const output = document.getElementById('output');
+    const bar = document.getElementById('bar');
+
+    const setMsg = (msg) => output.textContent = msg;
+    const resetProgress = () => bar.style.width = '0%';
+    const setProgress = (p) => bar.style.width = Math.min(100, Math.max(0, p)) + '%';
+
+    // File picker
+    pickBtn.addEventListener('click', () => fileInput.click());
+
+    // Drag & drop
+    ['dragenter','dragover'].forEach(evt => drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation(); drop.classList.add('drag');
+    }));
+    ;['dragleave','drop'].forEach(evt => drop.addEventListener(evt, e => {
+      e.preventDefault(); e.stopPropagation(); drop.classList.remove('drag');
+    }));
+    drop.addEventListener('drop', e => {
+      fileInput.files = e.dataTransfer.files;
+      renderBadges();
+    });
+
+    // Render selected files
+    function renderBadges(){
+      badges.innerHTML = '';
+      const files = fileInput.files;
+      if(!files || !files.length){ setMsg('No file selected'); return; }
+      [...files].slice(0,12).forEach(f => {
+        const b = document.createElement('span');
+        b.className = 'badge';
+        b.textContent = f.name;
+        badges.appendChild(b);
+      });
+      if(files.length > 12){
+        const b = document.createElement('span');
+        b.className = 'badge';
+        b.textContent = `+${files.length-12} more`;
+        badges.appendChild(b);
       }
-
-      // Expecting a downloadable Excel file (blob)
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'valuation_consolidated.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-      output.textContent = '✅ Consolidated Excel downloaded successfully.';
-    } catch (err) {
-      output.textContent = `❌ Upload failed: ${err.message}`;
+      setMsg(`${files.length} file${files.length>1?'s':''} ready.`);
     }
-  });
-</script>
+    fileInput.addEventListener('change', renderBadges);
+
+    // Upload
+    uploadBtn.addEventListener('click', async () => {
+      const files = fileInput.files;
+      if(!files || !files.length){ setMsg('Pick at least one file.'); return; }
+
+      resetProgress(); setProgress(10);
+      setMsg('Uploading & processing…');
+
+      const fd = new FormData();
+      for(const f of files) fd.append('files', f);
+
+      try{
+        const res = await fetch('/upload', { method: 'POST', body: fd });
+        setProgress(70);
+
+        if(!res.ok){
+          const text = await res.text();
+          throw new Error(text || `HTTP ${res.status}`);
+        }
+        const blob = await res.blob();
+        setProgress(95);
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'valuation_consolidated.xlsx';
+        document.body.appendChild(a); a.click(); a.remove();
+        window.URL.revokeObjectURL(url);
+
+        setProgress(100);
+        setMsg('✅ Consolidated Excel downloaded.');
+      }catch(err){
+        setProgress(0);
+        // Try to surface JSON error payloads nicely
+        let msg = err.message;
+        try { const j = JSON.parse(err.message); msg = j.error || err.message; } catch(_){}
+        setMsg(`❌ Upload failed: ${msg}`);
+      }
+    });
+  </script>
+</body>
+</html>
