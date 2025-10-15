@@ -7,6 +7,53 @@ import re
 
 app = Flask(__name__)
 
+from openpyxl import Workbook, load_workbook
+from openpyxl.utils import get_column_letter
+
+def sanitize_title(title: str) -> str:
+    # Excel tab name rules: max 31 chars, no : \ / ? * [ ]
+    bad = set(r':\/?*[]')
+    clean = ''.join(c for c in title if c not in bad)
+    return (clean or "Sheet")[:31]
+
+def copy_styles(src_cell, dst_cell):
+    # copy value/formula + most common styles
+    dst_cell.value = src_cell.value
+    dst_cell.number_format = src_cell.number_format
+    dst_cell.font = src_cell.font
+    dst_cell.fill = src_cell.fill
+    dst_cell.border = src_cell.border
+    dst_cell.alignment = src_cell.alignment
+
+def copy_sheet(src_ws, dst_ws):
+    # cell contents + styles
+    for row in src_ws.iter_rows():
+        for c in row:
+            dc = dst_ws.cell(row=c.row, column=c.column)
+            copy_styles(c, dc)
+
+    # merged cells
+    for rng in getattr(src_ws, 'merged_cells', []):
+        dst_ws.merge_cells(str(rng))
+
+    # column widths
+    for col_letter, dim in src_ws.column_dimensions.items():
+        dst_ws.column_dimensions[col_letter].width = dim.width
+
+    # row heights
+    for idx, dim in src_ws.row_dimensions.items():
+        dst_ws.row_dimensions[idx].height = dim.height
+
+def add_dataframe_sheet(wb: Workbook, name: str, df):
+    ws = wb.create_sheet(sanitize_title(name))
+    # write headers
+    for j, col in enumerate(df.columns, 1):
+        ws.cell(row=1, column=j, value=str(col))
+    # write rows
+    for i, (_, row) in enumerate(df.iterrows(), 2):
+        for j, val in enumerate(row, 1):
+            ws.cell(row=i, column=j, value=val)
+
 # ---- Limits & upload folder ----
 app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024  # 32MB request limit (Cloud Run)
 UPLOAD_FOLDER = 'uploads'
@@ -106,46 +153,64 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     try:
-        files = request.files.getlist('files')  # <-- expects <input name="files" multiple>
+        files = request.files.getlist('files')  # multiple
         if not files:
             return jsonify(error='No files uploaded'), 400
 
-        buckets = {"P&L": [], "Balance Sheet": [], "Cash Flow": [], "Other": []}
+        # Build a master workbook in memory
+        master_wb = Workbook()
+        # remove the default empty sheet; we'll add our own
+        default_ws = master_wb.active
+        master_wb.remove(default_ws)
 
         for f in files:
             if not f or f.filename == '':
                 continue
+
             fname = f.filename
+            base = os.path.splitext(os.path.basename(fname))[0]
             save_path = os.path.join(app.config['UPLOAD_FOLDER'], fname)
             f.save(save_path)
 
-            lname = fname.lower()
-            if lname.endswith(('.xlsx', '.xls')):
-                df = parse_excel_smart(save_path)
-            elif lname.endswith('.csv'):
+            lower = fname.lower()
+            if lower.endswith(('.xlsx', '.xls')):
+                # Keep formulas & styles
+                src_wb = load_workbook(save_path, data_only=False)  # formulas remain intact
+                for src_ws in src_wb.worksheets:
+                    target_title = sanitize_title(f"{base}-{src_ws.title}")
+                    dst_ws = master_wb.create_sheet(target_title)
+                    copy_sheet(src_ws, dst_ws)
+
+            elif lower.endswith('.csv'):
                 df = pd.read_csv(save_path)
-            elif lname.endswith('.pdf'):
-                df = parse_pdf_tables(save_path)
+                add_dataframe_sheet(master_wb, f"{base}-CSV", df)
+
+            elif lower.endswith('.pdf'):
+                # Extract tables (best-effort) and put each page as a sheet
+                frames = []
+                with pdfplumber.open(save_path) as pdf:
+                    for i, page in enumerate(pdf.pages, 1):
+                        table = page.extract_table()
+                        if table:
+                            df = pd.DataFrame(table[1:], columns=table[0])
+                            add_dataframe_sheet(master_wb, f"{base}-p{i}", df)
+                # if no tables found, create a stub sheet
+                if not master_wb.sheetnames or not any(s for s in master_wb.sheetnames if s.startswith(base)):
+                    add_dataframe_sheet(master_wb, f"{base}-PDF", pd.DataFrame([["No tables detected"]], columns=["Info"]))
             else:
-                df = pd.DataFrame()
+                # Unsupported type; optional: create a note sheet
+                add_dataframe_sheet(master_wb, f"{base}-UNSUPPORTED", pd.DataFrame([["Unsupported type"]], columns=["Info"]))
 
-            if df is None or df.empty:
-                continue
-
-            # trace back source
-            df.insert(0, 'Source File', fname)
-            buckets[classify_sheet(df, fname)].append(df)
-
-        merged = {k: (pd.concat(v, ignore_index=True) if v else pd.DataFrame())
-                  for k, v in buckets.items()}
-
-        # build Excel in-memory and return
-        buf = io.BytesIO()
-        with pd.ExcelWriter(buf, engine='openpyxl') as writer:
-            for sheet, frame in merged.items():
-                if not frame.empty:
-                    frame.to_excel(writer, sheet_name=sheet[:31], index=False)
+        # Stream back as a download AND (optionally) save a copy in /uploads
+        from io import BytesIO
+        buf = BytesIO()
+        master_wb.save(buf)
         buf.seek(0)
+
+        # Optional local copy (ephemeral in Cloud Run)
+        # with open(os.path.join(app.config['UPLOAD_FOLDER'], "valuation_consolidated.xlsx"), "wb") as out:
+        #     out.write(buf.getbuffer())
+
         return send_file(
             buf,
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
