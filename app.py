@@ -144,6 +144,38 @@ def classify_sheet(df: pd.DataFrame, fname: str) -> str:
     if _CF_KW.search(name)  or _CF_KW.search(head_vals):  return "Cash Flow"
     return "Other"
 
+def sanitize_title(title: str) -> str:
+    bad = set(r':\/?*[]'); clean = ''.join(c for c in title if c not in bad)
+    return (clean or "Sheet")[:31]
+
+def copy_styles(src_cell, dst_cell):
+    dst_cell.value = src_cell.value
+    dst_cell.number_format = src_cell.number_format
+    dst_cell.font = src_cell.font
+    dst_cell.fill = src_cell.fill
+    dst_cell.border = src_cell.border
+    dst_cell.alignment = src_cell.alignment
+
+def copy_sheet(src_ws, dst_ws):
+    for row in src_ws.iter_rows():
+        for c in row:
+            dc = dst_ws.cell(row=c.row, column=c.column)
+            copy_styles(c, dc)
+    for rng in getattr(src_ws, 'merged_cells', []):
+        dst_ws.merge_cells(str(rng))
+    for col_letter, dim in src_ws.column_dimensions.items():
+        dst_ws.column_dimensions[col_letter].width = dim.width
+    for idx, dim in src_ws.row_dimensions.items():
+        dst_ws.row_dimensions[idx].height = dim.height
+
+def add_dataframe_sheet(wb, name, df):
+    ws = wb.create_sheet(sanitize_title(name))
+    for j, col in enumerate(df.columns, 1):
+        ws.cell(row=1, column=j, value=str(col))
+    for i, (_, row) in enumerate(df.iterrows(), 2):
+        for j, val in enumerate(row, 1):
+            ws.cell(row=i, column=j, value=val)
+
 # ---- Routes ----
 @app.route('/')
 def index():
@@ -153,53 +185,61 @@ def index():
 @app.route('/upload', methods=['POST'])
 def upload_file():
     try:
-        files = request.files.getlist('files')  # multiple
+        files = request.files.getlist('files')
         if not files:
             return jsonify(error='No files uploaded'), 400
 
-        # Build a master workbook in memory
         master_wb = Workbook()
-        # remove the default empty sheet; we'll add our own
-        default_ws = master_wb.active
-        master_wb.remove(default_ws)
+        master_wb.remove(master_wb.active)  # drop default sheet
 
         for f in files:
-            if not f or f.filename == '':
+            if not f or not f.filename: 
                 continue
-
             fname = f.filename
             base = os.path.splitext(os.path.basename(fname))[0]
-            save_path = os.path.join(app.config['UPLOAD_FOLDER'], fname)
-            f.save(save_path)
+            path = os.path.join(app.config['UPLOAD_FOLDER'], fname)
+            f.save(path)
 
             lower = fname.lower()
-            if lower.endswith(('.xlsx', '.xls')):
-                # Keep formulas & styles
-                src_wb = load_workbook(save_path, data_only=False)  # formulas remain intact
+            if lower.endswith('.xlsx'):
+                # keep formulas & styles
+                src_wb = load_workbook(path, data_only=False)
                 for src_ws in src_wb.worksheets:
-                    target_title = sanitize_title(f"{base}-{src_ws.title}")
-                    dst_ws = master_wb.create_sheet(target_title)
+                    dst_ws = master_wb.create_sheet(sanitize_title(f"{base}-{src_ws.title}"))
                     copy_sheet(src_ws, dst_ws)
 
             elif lower.endswith('.csv'):
-                df = pd.read_csv(save_path)
+                df = pd.read_csv(path)
                 add_dataframe_sheet(master_wb, f"{base}-CSV", df)
 
             elif lower.endswith('.pdf'):
-                # Extract tables (best-effort) and put each page as a sheet
-                frames = []
-                with pdfplumber.open(save_path) as pdf:
+                import pdfplumber
+                with pdfplumber.open(path) as pdf:
+                    added = False
                     for i, page in enumerate(pdf.pages, 1):
                         table = page.extract_table()
                         if table:
                             df = pd.DataFrame(table[1:], columns=table[0])
                             add_dataframe_sheet(master_wb, f"{base}-p{i}", df)
-                # if no tables found, create a stub sheet
-                if not master_wb.sheetnames or not any(s for s in master_wb.sheetnames if s.startswith(base)):
-                    add_dataframe_sheet(master_wb, f"{base}-PDF", pd.DataFrame([["No tables detected"]], columns=["Info"]))
+                            added = True
+                    if not added:
+                        add_dataframe_sheet(master_wb, f"{base}-PDF", pd.DataFrame([["No tables detected"]], columns=["Info"]))
             else:
-                # Unsupported type; optional: create a note sheet
                 add_dataframe_sheet(master_wb, f"{base}-UNSUPPORTED", pd.DataFrame([["Unsupported type"]], columns=["Info"]))
+
+        from io import BytesIO
+        buf = BytesIO()
+        master_wb.save(buf); buf.seek(0)
+
+        return send_file(
+            buf,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name="valuation_consolidated.xlsx"
+        )
+    except Exception as e:
+        app.logger.exception("Upload failed")
+        return jsonify(error=str(e)), 500
 
         # Stream back as a download AND (optionally) save a copy in /uploads
         from io import BytesIO
